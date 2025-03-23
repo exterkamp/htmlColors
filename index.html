@@ -13,6 +13,8 @@
             #color-table {
                 width: 100%;
                 text-align: center;
+                display: grid;
+                grid-template-columns: repeat(5, 1fr);
             }
             #chips {
                 position: sticky;
@@ -45,9 +47,8 @@
     </head>
     <body>
         <template id="color-row">
-            <tr>
-                <td class="color-text"></td>
-            </tr>
+            <div class="color-text">
+            </div>
         </template>
         <template id="toast">
             <div>
@@ -59,10 +60,10 @@
             <button id="chroma">chroma</button>
             <button id="alpha">alphabetical</button>
         </div>
-        <table id="color-table"></table>
+        <div id="color-table"></div>
         <div id="toast-container"></div>
         <script>
-            const tbl = document.querySelector("table");
+            const tbl = document.getElementById("color-table");
             const tst = document.getElementById("toast-container");
             const chps = document.getElementById("chips");
             const namedColors = 
@@ -669,7 +670,18 @@
                 function compareChroma(a,b) {
                     let hslA = hexToHSL(a.hex);
                     let hslB = hexToHSL(b.hex);
-                    return hslB.hue - hslA.hue;
+                    let compareA = hslA.hue;
+                    let compareB = hslB.hue;
+                    // if a color has less than 20 saturation, move it to the end with the GRAYS.
+                    if (hslA.saturation < 20) {
+                        compareA -= 1000;
+                    } 
+                    if (hslB.saturation < 20) {
+                        compareB -= 1000;
+                    }
+                    // TODO: exterkamp - Look into why magenta is with the grays.
+                    // console.log(`${a.name}(${compareA}) vs ${b.name}(${compareB})`);
+                    return compareB - compareA;
                 }
 
                 function compareAlphabetical(a,b) {
@@ -687,19 +699,20 @@
 
             function createColorRow(color, hex) {
                 const tmpl = document.getElementById("color-row");
-                const copy = tmpl.content.cloneNode(true).querySelector("tr");
-                const cells = copy.querySelectorAll("td")
-                cells[0].textContent = `${color}`;
-                cells[0].style['background-color'] = color;
+                const copy = tmpl.content.cloneNode(true).querySelector("div");
+                copy.textContent = `${color}`;
+                copy.style['background-color'] = color;
 
                 const hslColor = hexToHSL(hex);
 
                 if (hslColor.luminance < 33) {
-                    cells[0].style.color = "white";
+                    copy.style.color = "white";
+                    copy.style['text-shadow'] = "#000 1px 0 10px";
                 } else {
-                    cells[0].style.color = "black";
+                    copy.style.color = "black";
+                    copy.style['text-shadow'] = "#fff 1px 0 10px";
                 }
-                cells[0].id = color;
+                copy.id = color;
                 tbl.appendChild(copy);
             }
 
@@ -765,8 +778,6 @@
                     }
                 }, 1000);
             }
-
-
 
             tbl.addEventListener('click', (e) => {
                 const target = e.target;
