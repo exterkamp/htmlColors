@@ -840,13 +840,13 @@
             chps.addEventListener('click', (e) => {
                 const target = e.target;
                 tbl.innerHTML = '';
-                namedColors.sort(getSortingFunction(target.id)).forEach((cfg) => {
+                namedColors.toSorted(getSortingFunction(target.id)).forEach((cfg) => {
                     createColorRow(cfg.name, cfg.hex);
                 })
             });
 
             // Populate the table, default to a chroma sort.
-            namedColors.sort(getSortingFunction("chroma")).forEach((cfg) => {
+            namedColors.toSorted(getSortingFunction("chroma")).forEach((cfg) => {
                 createColorRow(cfg.name, cfg.hex);
             })
         </script>
