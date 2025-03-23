@@ -4,9 +4,4 @@ Because I hate going to all those other ones with ads and stuff.
 
 TODO: exterkamp - Put this at colors.exterkamp.codes.
 
-[colors.exterkamp.codes](http://colors.exterkamp.codes/)
-
-or
-
-[Github Pages link](https://exterkamp.github.io/htmlColors/)
-
+[colors.exterkamp.codes](https://colors.exterkamp.codes/).
