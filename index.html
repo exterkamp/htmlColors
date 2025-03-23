@@ -1,12 +1,26 @@
 <!DOCTYPE html>
 <html>
     <head>
+        <meta name="viewport" content="width=device-width, initial-scale=1">
         <style>
+            :root {
+                --dark-gray: #3d3f45;
+                --light-gray: #bbbcc4;
+                --dark-background: var(--dark-gray);
+                --light-background: var(--light-gray);
+                --font-color: var(--light-gray);
+                --dark-font-color: var(--dark-gray);
+            }
             body {
                 margin: 0;
+                background-color: var(--dark-background);
+                color: var(--font-color);
+                font-family: monospace;
+            }
+            h1 {
+                margin-left: 4px;
             }
             .color-text {
-                font-family: monospace;
                 padding: 16px;
                 cursor: pointer;
             }
@@ -15,11 +29,48 @@
                 text-align: center;
                 display: grid;
                 grid-template-columns: repeat(5, 1fr);
+
+                & #transparent {
+                    background: 
+                        /* https://stackoverflow.com/a/65129916 */
+                        repeating-conic-gradient(#d0d0d0 0% 25%, white 0% 50%) 
+                        50% / 20px 20px
+                }
             }
+
+            @media (max-width: 800px) {
+                #color-table {
+                    grid-template-columns: repeat(3, 1fr);
+                }
+            }
+
+            @media (max-width: 450px) {
+                #color-table {
+                    grid-template-columns: repeat(1, 1fr);
+                }
+            }
+
             #chips {
                 position: sticky;
                 top: 0;
-                background-color: white;
+                background-color: var(--dark-background);
+                display: flex;
+                align-items: center;
+                gap: 4px;
+                padding: 4px;
+
+                & button {
+                    background-color: var(--light-background);
+                    border: none;
+                    border-radius: 2px;
+                    cursor: pointer;
+                    color: var(--dark-font-color);
+                    padding: 4px;
+                    text-align: center;
+                    text-decoration: none;
+                    font-size: 0.75rem;
+                    font-family: monospace;
+                }
             }
             #toast-container {
                 position: fixed;
@@ -34,10 +85,9 @@
                 pointer-events: none;
 
                 & div {
-                    font-family: monospace;
-                    color: white;
+                    color: var(--font-color);
                     max-width: 20%;
-                    background-color: lightslategrey;
+                    background-color: var(--dark-background);
                     padding: 16px;
                     border-radius: 4px;
                     box-shadow: 2px 5px 5px black;
@@ -57,6 +107,7 @@
         </template>
         <h1>HTML Named Colors</h1>
         <div id="chips">
+            <span>Sort by</span>
             <button id="chroma">chroma</button>
             <button id="alpha">alphabetical</button>
         </div>
