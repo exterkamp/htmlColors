@@ -2,6 +2,9 @@
 <html>
     <head>
         <style>
+            body {
+                margin: 0;
+            }
             .color-text {
                 font-family: monospace;
                 padding: 16px;
@@ -11,6 +14,33 @@
                 width: 100%;
                 text-align: center;
             }
+            #chips {
+                position: sticky;
+                top: 0;
+                background-color: white;
+            }
+            #toast-container {
+                position: fixed;
+                bottom: 0;
+                height: 100px;
+                /* border: 1px solid red; */
+                left: 0;
+                right: 0;
+                display: flex;
+                justify-content: center;
+                align-items: flex-start;
+                pointer-events: none;
+
+                & div {
+                    font-family: monospace;
+                    color: white;
+                    max-width: 20%;
+                    background-color: lightslategrey;
+                    padding: 16px;
+                    border-radius: 4px;
+                    box-shadow: 2px 5px 5px black;
+                }
+            }
         </style>
     </head>
     <body>
@@ -19,13 +49,22 @@
                 <td class="color-text"></td>
             </tr>
         </template>
-        <div>
-            <table id="color-table">
-
-            </table>
+        <template id="toast">
+            <div>
+                <span></span>
+            </div>
+        </template>
+        <h1>HTML Named Colors</h1>
+        <div id="chips">
+            <button id="chroma">chroma</button>
+            <button id="alpha">alphabetical</button>
         </div>
+        <table id="color-table"></table>
+        <div id="toast-container"></div>
         <script>
             const tbl = document.querySelector("table");
+            const tst = document.getElementById("toast-container");
+            const chps = document.getElementById("chips");
             const namedColors = 
             [
                 {
@@ -625,7 +664,27 @@
                     "hex": "#9acd32"
                 }
             ];
-        
+            
+            const getSortingFunction = (choice) => {
+                function compareChroma(a,b) {
+                    let hslA = hexToHSL(a.hex);
+                    let hslB = hexToHSL(b.hex);
+                    return hslB.hue - hslA.hue;
+                }
+
+                function compareAlphabetical(a,b) {
+                    return a.name.localeCompare(b.name);
+                }
+
+                switch (choice) {
+                    case "chroma":
+                        return compareChroma;
+                    case "alpha":
+                        return compareAlphabetical;
+                }
+                return compareAlphabetical;
+            }
+
             function createColorRow(color, hex) {
                 const tmpl = document.getElementById("color-row");
                 const copy = tmpl.content.cloneNode(true).querySelector("tr");
@@ -694,19 +753,40 @@
             }
 
             function toast(message) {
-
+                const tmpl = document.getElementById("toast");
+                const copy = tmpl.content.cloneNode(true).querySelector("div");
+                copy.querySelector("span").textContent = message;
+                // Remove all other toasts.
+                tst.innerHTML = '';
+                tst.appendChild(copy);
+                setTimeout(() => {
+                    if (Array.from(tst.childNodes).find((el) => el === copy)) {
+                        tst.removeChild(copy);
+                    }
+                }, 1000);
             }
 
-            namedColors.sort((a,b)=> a.name.localeCompare(b.name)).forEach((cfg) => {
-                createColorRow(cfg.name, cfg.hex);
-            })
+
 
             tbl.addEventListener('click', (e) => {
                 const target = e.target;
                 // Copy the text inside the text field
                 navigator.clipboard.writeText(target.id);
+                toast(`Copied ${target.id}`);
             });
 
+            chps.addEventListener('click', (e) => {
+                const target = e.target;
+                tbl.innerHTML = '';
+                namedColors.sort(getSortingFunction(target.id)).forEach((cfg) => {
+                    createColorRow(cfg.name, cfg.hex);
+                })
+            });
+
+            // Populate the table, default to a chroma sort.
+            namedColors.sort(getSortingFunction("chroma")).forEach((cfg) => {
+                createColorRow(cfg.name, cfg.hex);
+            })
         </script>
     </body>
 </html>
