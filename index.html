@@ -25,6 +25,11 @@
                 padding: 16px;
                 cursor: pointer;
             }
+            
+            #chips {
+                display: inline;
+            }
+
             #color-table {
                 width: 100%;
                 text-align: center;
@@ -107,10 +112,14 @@
             </div>
         </template>
         <h1>HTML Named Colors</h1>
-        <div id="chips">
+        <div>
             <span>Sort by</span>
-            <button id="chroma">chroma</button>
-            <button id="alpha">alphabetical</button>
+            <div id="chips">
+                <button id="chroma">chroma</button>
+                <button id="alpha">alphabetical</button>
+            </div>
+            <label for="max-lum">Max Luminance</label>
+            <input id="max-lum" value="90" type="range" min="0" max="100"/>
         </div>
         <div id="color-table"></div>
         <div id="toast-container"></div>
@@ -118,6 +127,9 @@
             const tbl = document.getElementById("color-table");
             const tst = document.getElementById("toast-container");
             const chps = document.getElementById("chips");
+            const maxLum = document.getElementById("max-lum");
+            let currentSortingFunction = "chroma";
+            
             const namedColors = 
             [
                 {
@@ -841,13 +853,32 @@
             chps.addEventListener('click', (e) => {
                 const target = e.target;
                 tbl.innerHTML = '';
-                namedColors.toSorted(getSortingFunction(target.id)).forEach((cfg) => {
+                currentSortingFunction = target.id;
+                namedColors.toSorted(getSortingFunction(currentSortingFunction)).filter((a) => {
+                    let hslA = hexToHSL(a.hex);
+                    return hslA.luminance < parseInt(maxLum.value, 10);
+                }).forEach((cfg) => {
+                    createColorRow(cfg.name, cfg.hex);
+                })
+            });
+
+            maxLum.addEventListener('input', (e) => {
+                tbl.innerHTML = '';
+                namedColors.toSorted(getSortingFunction(currentSortingFunction)).filter((a) => {
+                    let hslA = hexToHSL(a.hex);
+                    console.log(`max lum ${maxLum.value}`);
+
+                    return hslA.luminance < parseInt(maxLum.value, 10);
+                }).forEach((cfg) => {
                     createColorRow(cfg.name, cfg.hex);
                 })
             });
 
             // Populate the table, default to a chroma sort.
-            namedColors.toSorted(getSortingFunction("chroma")).forEach((cfg) => {
+            namedColors.toSorted(getSortingFunction(currentSortingFunction)).filter((a) => {
+                    let hslA = hexToHSL(a.hex);
+                    return hslA.luminance < parseInt(maxLum.value, 10);
+                }).forEach((cfg) => {
                 createColorRow(cfg.name, cfg.hex);
             })
         </script>
