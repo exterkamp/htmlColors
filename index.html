@@ -18,6 +18,14 @@
                 color: var(--font-color);
                 font-family: monospace;
             }
+
+            .full-height-container {
+                display: flex;
+                flex-direction: column;
+                height: 100vh;
+                overflow: hidden;
+            }
+
             h1 {
                 margin-left: 4px;
             }
@@ -30,18 +38,21 @@
                 display: inline;
             }
 
-            #color-table {
-                width: 100%;
+            #color-wheel {
+                flex-grow: 1;
+
+                
+
+                /* width: 100%;
                 text-align: center;
                 display: grid;
                 grid-template-columns: repeat(5, 1fr);
 
                 & #transparent {
                     background: 
-                        /* https://stackoverflow.com/a/65129916 */
                         repeating-conic-gradient(#d0d0d0 0% 25%, white 0% 50%) 
                         50% / 20px 20px
-                }
+                } */
             }
 
             @media (max-width: 800px) {
@@ -99,6 +110,13 @@
                     box-shadow: 2px 5px 5px black;
                 }
             }
+            #hover-container {
+                position: absolute;
+                width: 50px;
+                height: 50px;
+                background-color: red;
+                pointer-events: none;
+            }
         </style>
     </head>
     <body>
@@ -111,25 +129,42 @@
                 <span></span>
             </div>
         </template>
-        <h1>HTML Named Colors</h1>
-        <div>
-            <span>Sort by</span>
-            <div id="chips">
-                <button id="chroma">chroma</button>
-                <button id="alpha">alphabetical</button>
+        <div class="full-height-container">
+            <h1>HTML Named Colors</h1>
+            <div>
+                <span>Sort by</span>
+                <div id="chips">
+                    <button id="chroma">chroma</button>
+                    <button id="alpha">alphabetical</button>
+                </div>
+                <label for="max-lum">Max Luminance</label>
+                <input id="max-lum" value="70" type="range" min="0" max="100"/>
             </div>
-            <label for="max-lum">Max Luminance</label>
-            <input id="max-lum" value="90" type="range" min="0" max="100"/>
+            <div id="color-wheel"></div>
         </div>
-        <div id="color-table"></div>
         <div id="toast-container"></div>
+        <div id="hover-container"></div>
         <script>
             const tbl = document.getElementById("color-table");
+            const wheel = document.getElementById("color-wheel");
             const tst = document.getElementById("toast-container");
+            const hvr = document.getElementById("hover-container");
             const chps = document.getElementById("chips");
             const maxLum = document.getElementById("max-lum");
             let currentSortingFunction = "chroma";
+
+            function setupHoverContainer(element) {
+                document.addEventListener('mousemove', function(event) {
+                    window.requestAnimationFrame(() => {
+                        element.style['top'] = `${event.clientY}px`;
+                        element.style['left'] = `${event.clientX}px`;
+                    })
+                    console.log('Mouse X:', event.clientX, 'Mouse Y:', event.clientY);
+                });
+            }
             
+            setupHoverContainer(hvr);
+
             const namedColors = 
             [
                 {
@@ -843,44 +878,102 @@
                 }, 1000);
             }
 
-            tbl.addEventListener('click', (e) => {
-                const target = e.target;
-                // Copy the text inside the text field
-                navigator.clipboard.writeText(target.id);
-                toast(`Copied ${target.id}`);
-            });
+            function hoverMessage(message) {
+                // Create hover message that follows the mouse.
+                console.log(message);
+                hvr.textContent = message;
+            }
 
             chps.addEventListener('click', (e) => {
                 const target = e.target;
-                tbl.innerHTML = '';
                 currentSortingFunction = target.id;
-                namedColors.toSorted(getSortingFunction(currentSortingFunction)).filter((a) => {
-                    let hslA = hexToHSL(a.hex);
-                    return hslA.luminance < parseInt(maxLum.value, 10);
-                }).forEach((cfg) => {
-                    createColorRow(cfg.name, cfg.hex);
-                })
+                renderColorWheel();
             });
 
             maxLum.addEventListener('input', (e) => {
-                tbl.innerHTML = '';
-                namedColors.toSorted(getSortingFunction(currentSortingFunction)).filter((a) => {
-                    let hslA = hexToHSL(a.hex);
-                    console.log(`max lum ${maxLum.value}`);
-
-                    return hslA.luminance < parseInt(maxLum.value, 10);
-                }).forEach((cfg) => {
-                    createColorRow(cfg.name, cfg.hex);
-                })
+                renderColorWheel();
             });
 
-            // Populate the table, default to a chroma sort.
-            namedColors.toSorted(getSortingFunction(currentSortingFunction)).filter((a) => {
-                    let hslA = hexToHSL(a.hex);
-                    return hslA.luminance < parseInt(maxLum.value, 10);
-                }).forEach((cfg) => {
-                createColorRow(cfg.name, cfg.hex);
-            })
+            const resizeObserver = new ResizeObserver((entries) => {
+                renderColorWheel();
+            });
+
+            resizeObserver.observe(wheel);
+            
+            /**
+             * Render a new color wheel baed on the available input data. 
+             */
+            function renderColorWheel() {
+                let start = new Date();
+                // Destroy current wheel.
+                wheel.innerHTML = "";
+                // Create a new one.
+                const svg = document.createElementNS("http://www.w3.org/2000/svg", "svg");
+
+                let width = window.innerWidth;
+                let height = /* color wheel height */ wheel.clientHeight;
+
+                let radius = Math.min(width, height) / 4;
+
+
+                // TODO: Make this based on the size of the canvas area we have.
+                svg.setAttribute("width", width);
+                svg.setAttribute("height", height);
+                wheel.appendChild(svg);
+
+                // Get the current sorting function.
+                let sortingFunc = getSortingFunction(currentSortingFunction);
+                let maxLuminance = parseInt(maxLum.value, 10);
+
+                let filteredColors = namedColors
+                    .toSorted(sortingFunc)
+                    .filter((a) => {
+                        let hslA = hexToHSL(a.hex);
+                        return hslA.luminance < maxLuminance;
+                    });
+
+
+                let totalNumberOfColors = filteredColors.length;
+
+                let appendArc = (angle, color) => {
+                    // let radius = 100;
+                    let pi = 3.14159;
+                    let circumference = radius * 2 * pi;
+
+                    let translationX = width / 2;
+                    let translationY = radius * 2;
+
+                    const path = document.createElementNS("http://www.w3.org/2000/svg", "circle");
+
+                    path.setAttribute("transform", `rotate(${angle} ${translationX} ${translationY})`);
+                    path.setAttribute("r", `${radius}`);
+                    path.setAttribute("cx", `${translationX}`);
+                    path.setAttribute("cy", `${translationY}`);
+                    path.setAttribute("stroke", color);
+                    path.setAttribute("stroke-width", `${radius}`);
+                    path.setAttribute("stroke-dasharray", `${circumference/totalNumberOfColors} ${circumference}`);
+                    path.setAttribute("fill", "none");
+
+                    path.addEventListener('mouseenter', (e) => {
+                        hoverMessage(`hover: ${color}`);
+                    });
+
+                    svg.appendChild(path);
+                };
+
+                let arcDelta = 360 / totalNumberOfColors;
+
+                filteredColors.forEach((cfg, idx) => {
+                    const color = cfg.name;
+                    const hex = cfg.hex;
+
+                    appendArc(arcDelta * idx, color);
+                })
+                console.log(`elapsed time to render: ${new Date() - start}ms`);
+            }
+
+            renderColorWheel();
+
         </script>
     </body>
 </html>
