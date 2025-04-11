@@ -40,20 +40,22 @@
 
             #color-wheel {
                 flex-grow: 1;
-
                 
 
-                /* width: 100%;
-                text-align: center;
-                display: grid;
-                grid-template-columns: repeat(5, 1fr);
+                & svg {
+                    transform-origin: center;
 
-                & #transparent {
-                    background: 
-                        repeating-conic-gradient(#d0d0d0 0% 25%, white 0% 50%) 
-                        50% / 20px 20px
-                } */
+                    & circle.selected {
+                        animation-duration: 0.1s;
+                        animation-iteration-count: infinite;
+                        animation-direction: alternate;
+                        animation-timing-function: ease-in-out;
+                        animation-name: ring;
+                    }
+                }
             }
+
+            
 
             @media (max-width: 800px) {
                 #color-table {
@@ -93,7 +95,6 @@
                 position: fixed;
                 bottom: 0;
                 height: 100px;
-                /* border: 1px solid red; */
                 left: 0;
                 right: 0;
                 display: flex;
@@ -112,10 +113,21 @@
             }
             #hover-container {
                 position: absolute;
-                width: 50px;
-                height: 50px;
-                background-color: red;
+                background-color: white;
+                color: black;
                 pointer-events: none;
+                padding: 2px;
+                display: none;
+            }
+        </style>
+        <style id="ring-animation">
+            @keyframes ring {
+                from {
+                    stroke-width: 100;
+                }
+                to {
+                    stroke-width: 200;
+                }
             }
         </style>
     </head>
@@ -151,15 +163,15 @@
             const hvr = document.getElementById("hover-container");
             const chps = document.getElementById("chips");
             const maxLum = document.getElementById("max-lum");
+            const fullHeightContainer = document.getElementsByClassName("full-height-container")[0];
             let currentSortingFunction = "chroma";
 
             function setupHoverContainer(element) {
                 document.addEventListener('mousemove', function(event) {
                     window.requestAnimationFrame(() => {
-                        element.style['top'] = `${event.clientY}px`;
+                        element.style['top'] = `calc(${event.clientY}px - 1rem)`;
                         element.style['left'] = `${event.clientX}px`;
                     })
-                    console.log('Mouse X:', event.clientX, 'Mouse Y:', event.clientY);
                 });
             }
             
@@ -880,8 +892,16 @@
 
             function hoverMessage(message) {
                 // Create hover message that follows the mouse.
-                console.log(message);
                 hvr.textContent = message;
+                hvr.style['display'] = `unset`;
+            }
+
+            function maybeRemoveMessage(message) {
+                let cur = hvr.textContent;
+                if (cur === message) {
+                    hvr.textContent = ''
+                    hvr.style['display'] = `none`;
+                }
             }
 
             chps.addEventListener('click', (e) => {
@@ -898,7 +918,7 @@
                 renderColorWheel();
             });
 
-            resizeObserver.observe(wheel);
+            resizeObserver.observe(fullHeightContainer);
             
             /**
              * Render a new color wheel baed on the available input data. 
@@ -921,6 +941,18 @@
                 svg.setAttribute("height", height);
                 wheel.appendChild(svg);
 
+                // Set the animation based on the radius.
+                let animationHtml = 
+                    "@keyframes ring {" +
+                        "from {" +
+                            `stroke-width: ${radius};` +
+                        "}" +
+                        "to {" +
+                            `stroke-width: ${radius * 1.25};` +
+                        "}" +
+                    "}";
+                document.getElementById("ring-animation").innerHTML = animationHtml;
+
                 // Get the current sorting function.
                 let sortingFunc = getSortingFunction(currentSortingFunction);
                 let maxLuminance = parseInt(maxLum.value, 10);
@@ -936,7 +968,6 @@
                 let totalNumberOfColors = filteredColors.length;
 
                 let appendArc = (angle, color) => {
-                    // let radius = 100;
                     let pi = 3.14159;
                     let circumference = radius * 2 * pi;
 
@@ -955,7 +986,19 @@
                     path.setAttribute("fill", "none");
 
                     path.addEventListener('mouseenter', (e) => {
-                        hoverMessage(`hover: ${color}`);
+                        hoverMessage(`${color}`);
+                        path.classList.add('selected');
+                    });
+
+                    path.addEventListener('mouseleave', (e) => {
+                        maybeRemoveMessage(`${color}`);
+                        path.classList.remove('selected');
+                    });
+
+                    path.addEventListener('click', () => {
+                        // Copy the text inside the text field
+                        navigator.clipboard.writeText(color);
+                        toast(`Copied ${color}`);
                     });
 
                     svg.appendChild(path);
