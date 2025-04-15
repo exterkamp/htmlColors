@@ -18,6 +18,14 @@
                 color: var(--font-color);
                 font-family: monospace;
             }
+
+            .full-height-container {
+                display: flex;
+                flex-direction: column;
+                height: 100vh;
+                overflow: hidden;
+            }
+
             h1 {
                 margin-left: 4px;
             }
@@ -30,19 +38,24 @@
                 display: inline;
             }
 
-            #color-table {
-                width: 100%;
-                text-align: center;
-                display: grid;
-                grid-template-columns: repeat(5, 1fr);
+            #color-wheel {
+                flex-grow: 1;
+                
 
-                & #transparent {
-                    background: 
-                        /* https://stackoverflow.com/a/65129916 */
-                        repeating-conic-gradient(#d0d0d0 0% 25%, white 0% 50%) 
-                        50% / 20px 20px
+                & svg {
+                    transform-origin: center;
+
+                    & circle.selected {
+                        animation-duration: 0.1s;
+                        animation-iteration-count: infinite;
+                        animation-direction: alternate;
+                        animation-timing-function: ease-in-out;
+                        animation-name: ring;
+                    }
                 }
             }
+
+            
 
             @media (max-width: 800px) {
                 #color-table {
@@ -82,7 +95,6 @@
                 position: fixed;
                 bottom: 0;
                 height: 100px;
-                /* border: 1px solid red; */
                 left: 0;
                 right: 0;
                 display: flex;
@@ -99,6 +111,24 @@
                     box-shadow: 2px 5px 5px black;
                 }
             }
+            #hover-container {
+                position: absolute;
+                background-color: white;
+                color: black;
+                pointer-events: none;
+                padding: 2px;
+                display: none;
+            }
+        </style>
+        <style id="ring-animation">
+            @keyframes ring {
+                from {
+                    stroke-width: 100;
+                }
+                to {
+                    stroke-width: 200;
+                }
+            }
         </style>
     </head>
     <body>
@@ -111,25 +141,46 @@
                 <span></span>
             </div>
         </template>
-        <h1>HTML Named Colors</h1>
-        <div>
-            <span>Sort by</span>
-            <div id="chips">
-                <button id="chroma">chroma</button>
-                <button id="alpha">alphabetical</button>
+        <div class="full-height-container">
+            <h1>HTML Named Colors</h1>
+            <div>
+                <span>Sort by</span>
+                <div id="chips">
+                    <button id="chroma">chroma</button>
+                    <button id="alpha">alphabetical</button>
+                </div>
+                <label for="max-lum">Max Luminance</label>
+                <input id="max-lum" value="70" type="range" min="1" max="100"/>
+                <label for="min-sat">Min Saturation</label>
+                <input id="min-sat" value="26" type="range" min="0" max="99"/>
             </div>
-            <label for="max-lum">Max Luminance</label>
-            <input id="max-lum" value="90" type="range" min="0" max="100"/>
+            <div id="color-wheel"></div>
         </div>
-        <div id="color-table"></div>
         <div id="toast-container"></div>
+        <div id="hover-container"></div>
         <script>
+            const pi = 3.14159265;
             const tbl = document.getElementById("color-table");
+            const wheel = document.getElementById("color-wheel");
             const tst = document.getElementById("toast-container");
+            const hvr = document.getElementById("hover-container");
             const chps = document.getElementById("chips");
             const maxLum = document.getElementById("max-lum");
+            const minSat = document.getElementById("min-sat");
+            const fullHeightContainer = document.getElementsByClassName("full-height-container")[0];
             let currentSortingFunction = "chroma";
+
+            function setupHoverContainer(element) {
+                document.addEventListener('mousemove', function(event) {
+                    window.requestAnimationFrame(() => {
+                        element.style['top'] = `calc(${event.clientY}px - 1rem)`;
+                        element.style['left'] = `${event.clientX}px`;
+                    })
+                });
+            }
             
+            setupHoverContainer(hvr);
+
             const namedColors = 
             [
                 {
@@ -843,44 +894,252 @@
                 }, 1000);
             }
 
-            tbl.addEventListener('click', (e) => {
-                const target = e.target;
-                // Copy the text inside the text field
-                navigator.clipboard.writeText(target.id);
-                toast(`Copied ${target.id}`);
-            });
+            function hoverMessage(message) {
+                // Create hover message that follows the mouse.
+                hvr.textContent = message;
+                hvr.style['display'] = `unset`;
+            }
+
+            function maybeRemoveMessage(message) {
+                let cur = hvr.textContent;
+                if (cur === message) {
+                    hvr.textContent = ''
+                    hvr.style['display'] = `none`;
+                }
+            }
 
             chps.addEventListener('click', (e) => {
                 const target = e.target;
-                tbl.innerHTML = '';
                 currentSortingFunction = target.id;
-                namedColors.toSorted(getSortingFunction(currentSortingFunction)).filter((a) => {
-                    let hslA = hexToHSL(a.hex);
-                    return hslA.luminance < parseInt(maxLum.value, 10);
-                }).forEach((cfg) => {
-                    createColorRow(cfg.name, cfg.hex);
-                })
+                renderColorRainbow();
             });
 
             maxLum.addEventListener('input', (e) => {
-                tbl.innerHTML = '';
-                namedColors.toSorted(getSortingFunction(currentSortingFunction)).filter((a) => {
-                    let hslA = hexToHSL(a.hex);
-                    console.log(`max lum ${maxLum.value}`);
-
-                    return hslA.luminance < parseInt(maxLum.value, 10);
-                }).forEach((cfg) => {
-                    createColorRow(cfg.name, cfg.hex);
-                })
+                renderColorRainbow();
             });
 
-            // Populate the table, default to a chroma sort.
-            namedColors.toSorted(getSortingFunction(currentSortingFunction)).filter((a) => {
-                    let hslA = hexToHSL(a.hex);
-                    return hslA.luminance < parseInt(maxLum.value, 10);
-                }).forEach((cfg) => {
-                createColorRow(cfg.name, cfg.hex);
-            })
+            minSat.addEventListener('input', (e) => {
+                renderColorRainbow();
+            });
+
+            const resizeObserver = new ResizeObserver((entries) => {
+                renderColorRainbow();
+            });
+
+            resizeObserver.observe(fullHeightContainer);
+            
+            /**
+             * Render a new color wheel baed on the available input data. 
+             */
+            function renderColorWheel() {
+                let start = new Date();
+                // Destroy current wheel.
+                wheel.innerHTML = "";
+                // Create a new one.
+                const svg = document.createElementNS("http://www.w3.org/2000/svg", "svg");
+
+                let width = window.innerWidth;
+                let height = /* color wheel height */ wheel.clientHeight;
+
+                let radius = Math.min(width, height) / 4;
+
+
+                // TODO: Make this based on the size of the canvas area we have.
+                svg.setAttribute("width", width);
+                svg.setAttribute("height", height);
+                wheel.appendChild(svg);
+
+                // Set the animation based on the radius.
+                let animationHtml = 
+                    "@keyframes ring {" +
+                        "from {" +
+                            `stroke-width: ${radius};` +
+                        "}" +
+                        "to {" +
+                            `stroke-width: ${radius * 1.25};` +
+                        "}" +
+                    "}";
+                document.getElementById("ring-animation").innerHTML = animationHtml;
+
+                // Get the current sorting function.
+                let sortingFunc = getSortingFunction(currentSortingFunction);
+                let maxLuminance = parseInt(maxLum.value, 10);
+
+                let filteredColors = namedColors
+                    .toSorted(sortingFunc)
+                    .filter((a) => {
+                        let hslA = hexToHSL(a.hex);
+                        return hslA.luminance < maxLuminance;
+                    });
+
+
+                let totalNumberOfColors = filteredColors.length;
+
+                let appendArc = (angle, color) => {
+                    let pi = 3.14159;
+                    let circumference = radius * 2 * pi;
+
+                    let translationX = width / 2;
+                    let translationY = radius * 2;
+
+                    const path = document.createElementNS("http://www.w3.org/2000/svg", "circle");
+
+                    path.setAttribute("transform", `rotate(${angle} ${translationX} ${translationY})`);
+                    path.setAttribute("r", `${radius}`);
+                    path.setAttribute("cx", `${translationX}`);
+                    path.setAttribute("cy", `${translationY}`);
+                    path.setAttribute("stroke", color);
+                    path.setAttribute("stroke-width", `${radius}`);
+                    path.setAttribute("stroke-dasharray", `${circumference/totalNumberOfColors} ${circumference}`);
+                    path.setAttribute("fill", "none");
+
+                    path.addEventListener('mouseenter', (e) => {
+                        hoverMessage(`${color}`);
+                        path.classList.add('selected');
+                    });
+
+                    path.addEventListener('mouseleave', (e) => {
+                        maybeRemoveMessage(`${color}`);
+                        path.classList.remove('selected');
+                    });
+
+                    path.addEventListener('click', () => {
+                        // Copy the text inside the text field
+                        navigator.clipboard.writeText(color);
+                        toast(`Copied ${color}`);
+                    });
+
+                    svg.appendChild(path);
+                };
+
+                let arcDelta = 360 / totalNumberOfColors;
+
+                filteredColors.forEach((cfg, idx) => {
+                    const color = cfg.name;
+                    const hex = cfg.hex;
+
+                    appendArc(arcDelta * idx, color);
+                })
+                console.log(`elapsed time to render: ${new Date() - start}ms`);
+            }
+
+
+            /**
+             * Render the Color Rainbow, this will be a half-circl rainbow that takes up either
+             * the full possible width or full possible height of the container.
+             */
+            function renderColorRainbow() {
+                // Calculate the starting position on the inner arc.
+                let start = new Date();
+                // Destroy current wheel.
+                wheel.innerHTML = "";
+
+                // Create a new one.
+                const svg = document.createElementNS("http://www.w3.org/2000/svg", "svg");
+
+                let width = window.innerWidth;
+                let height = /* color wheel height */ wheel.clientHeight;
+
+                // TODO: Make this based on the size of the canvas area we have.
+                svg.setAttribute("width", width);
+                svg.setAttribute("height", height);
+                wheel.appendChild(svg); 
+
+                // Get the current sorting function.
+                let sortingFunc = getSortingFunction(currentSortingFunction);
+                let maxLuminance = parseInt(maxLum.value, 10);
+                let minSaturation = parseInt(minSat.value, 10);
+
+                let filteredColors = namedColors
+                    .toSorted(sortingFunc)
+                    .filter((a) => {
+                        let hslA = hexToHSL(a.hex);
+                        return hslA.luminance < maxLuminance && hslA.saturation > minSaturation;
+                    });
+
+
+                let totalNumberOfColors = filteredColors.length;
+
+                filteredColors.forEach((cfg, idx) => {
+                    const color = cfg.name;
+                    const hex = cfg.hex;
+
+                    renderArc(svg, Math.PI / totalNumberOfColors, idx * Math.PI/totalNumberOfColors, color);
+                })
+                console.log(`elapsed time to render: ${new Date() - start}ms`);
+            }
+
+            /**
+             * Render an arc of a donut with given length in radians.
+             * 
+             * @param svg - The svg to apply the arc to.
+             * @param arcLength - Length of arc in radians
+             * @param offset - an offset from 0 rad, where 0 is the left latitude.
+             * @param color - The fill color used to fill the arc.
+             */
+            function renderArc(svg, arcLength, offset, color) {
+                let width = svg.clientWidth;
+                let height = svg.clientHeight;
+                
+                let outerArcRad = width / 2 ;
+                let center = width / 2;
+
+                let innerArcPercentage = 0.2; /* 20% size of outer arc radius */
+                let innerArcRad = (width * innerArcPercentage) / 2;
+
+                let tanLength = center - innerArcRad;
+
+                if (outerArcRad > (height)) {
+                    // This means out top would overflow, so we need to limit our tanLegnth rad.
+                    tanLength = (height) - innerArcRad;
+                    innerArcRad = (width * innerArcPercentage) / 2;
+                    outerArcRad = (height) 
+                }  
+
+                let d = "";
+                // M to our origin, aka half width minus inner arc radius
+                const originX = center;
+                const originY = height;
+                d += `M ${center} ${height}\n`;
+                // Now move relative to that to the inner arc tan point.
+                d += `m ${(Math.cos(offset) * innerArcRad) * -1} ${(Math.sin(offset) * innerArcRad) * -1}\n`;
+                // Define the inner arc, but it's relative to the last m.
+                let relx = originX - Math.cos(arcLength + offset) * innerArcRad;
+                let rely = originY - Math.sin(arcLength + offset) * innerArcRad;
+                d += `A ${innerArcRad} ${innerArcRad} 0 0 1 ${relx} ${rely}\n`
+                // // Define the leading tangent, relative to the origin.
+                relx = originX - (Math.cos(arcLength + offset) * outerArcRad);
+                rely = originY - (Math.sin(arcLength + offset) * outerArcRad);
+                d += `L ${relx} ${rely}\n`
+                // // Define the outer arc, relative to the origin.
+                relx = originX - (Math.cos(offset) * outerArcRad);
+                rely = originY - (Math.sin(offset) * outerArcRad);
+                d += `A ${outerArcRad} ${outerArcRad} 0 0 0 ${relx} ${rely}\n`
+                // // Go home.
+                d += `z`
+
+                const path = document.createElementNS("http://www.w3.org/2000/svg", "path");
+                path.setAttribute("d", d);
+                path.setAttribute("fill", color);
+
+                path.addEventListener('mouseenter', (e) => {
+                    hoverMessage(`${color}`);
+                    path.classList.add('selected');
+                });
+
+                path.addEventListener('mouseleave', (e) => {
+                    maybeRemoveMessage(`${color}`);
+                    path.classList.remove('selected');
+                });
+
+                path.addEventListener('click', () => {
+                    // Copy the text inside the text field
+                    navigator.clipboard.writeText(color);
+                    toast(`Copied ${color}`);
+                });
+
+                svg.appendChild(path);
+            }
         </script>
     </body>
 </html>
